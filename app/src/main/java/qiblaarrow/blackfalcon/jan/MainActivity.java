@@ -4,16 +4,23 @@ import android.Manifest;
 import android.app.Activity;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.hardware.GeomagneticField;
 import android.hardware.SensorManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
+import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
+import android.widget.FrameLayout;
+import android.widget.TextView;
+import android.widget.Toast;
 
-/** Full-screen black Qibla arrow. */
+/** Full-screen black Qibla arrow with Refresh Location button. */
 public class MainActivity extends Activity implements HeadingProvider.Listener {
 
     private static final int REQ_LOCATION = 1;
@@ -53,12 +60,46 @@ public class MainActivity extends Activity implements HeadingProvider.Listener {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         locationManager = getSystemService(LocationManager.class);
 
+        // 1. Base ArrowView
         arrowView = new ArrowView(this);
-        // tap anywhere to try getting the location again
         arrowView.setOnClickListener(v -> {
             if (!hasLoc) requestLocation();
         });
-        setContentView(arrowView);
+
+        // 2. Refresh Location Button (Pill Style)
+        TextView refreshBtn = new TextView(this);
+        refreshBtn.setText("↻ Refresh Location");
+        refreshBtn.setTextColor(Color.parseColor("#2ECC71"));
+        refreshBtn.setTextSize(14);
+        refreshBtn.setTypeface(Typeface.DEFAULT_BOLD);
+        refreshBtn.setPadding(dp(16), dp(10), dp(16), dp(10));
+
+        GradientDrawable btnBg = new GradientDrawable();
+        btnBg.setColor(Color.parseColor("#1A0D1F14")); // Subtle dark background
+        btnBg.setStroke(dp(1), Color.parseColor("#2ECC71")); // Green Border
+        btnBg.setCornerRadius(dp(20));
+        refreshBtn.setBackground(btnBg);
+        refreshBtn.setClickable(true);
+
+        refreshBtn.setOnClickListener(v -> {
+            requestLocation();
+            Toast.makeText(this, "Refreshing Location...", Toast.LENGTH_SHORT).show();
+        });
+
+        // 3. Layout params for Top-Right placement
+        FrameLayout.LayoutParams btnParams = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+        );
+        btnParams.gravity = Gravity.TOP | Gravity.END;
+        btnParams.setMargins(0, dp(36), dp(16), 0); // Margin from top & right
+
+        // 4. Combine in FrameLayout
+        FrameLayout mainLayout = new FrameLayout(this);
+        mainLayout.addView(arrowView);
+        mainLayout.addView(refreshBtn, btnParams);
+
+        setContentView(mainLayout);
 
         provider = new HeadingProvider(this, this, 0.15);
         loadSavedLocation();
@@ -69,6 +110,10 @@ public class MainActivity extends Activity implements HeadingProvider.Listener {
         } else {
             requestLocation();
         }
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
     private void requestLocation() {
@@ -156,7 +201,7 @@ public class MainActivity extends Activity implements HeadingProvider.Listener {
             arrowView.setState(true, qiblaBearing, rel, trueHeading, "");
         } else {
             arrowView.setState(false, 0, 0, 0,
-                    "Allow location to find the Qibla\n(tap the screen to try again)");
+                    "Allow location to find the Qibla\n(tap the screen or refresh button to try again)");
         }
     }
 
